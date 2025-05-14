@@ -1,0 +1,21 @@
+QWidget {
+    background-color: #2E3440;
+    color: #D8DEE9;
+    font-size: 14px;
+}
+
+QTableWidget {
+    background-color: #3B4252;
+    color: #D8DEE9;
+    border: 1px solid #4C566A;
+}
+
+QHeaderView::section {
+    background-color: #4C566A;
+    color: #D8DEE9;
+    padding: 4px;
+}
+
+QPushButton#Search{
+    background-color: #4C566A;
+}
