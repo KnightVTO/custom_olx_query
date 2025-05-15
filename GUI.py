@@ -99,6 +99,10 @@ def scrape_olx_motorcycles(
         response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.text, "html.parser")
 
+        results_exist = soup.select_one("span[data-testid='total-count']")
+        if results_exist.text.strip() == "Am găsit  0 rezultate pentru tine":
+            return []
+
         listings = soup.select('div[data-cy="l-card"]')
         if not listings:
             break
@@ -146,6 +150,7 @@ class OLXScraperApp(QWidget):
 
         # Brand selection
         self.filter_group_0 = FilterGroup(self.filters_groups_counter)
+        self.filter_group_0.remove_filter_button.clicked.connect(lambda: self.remove_filter_group(self.filter_group_0.group_id))
         self.all_filter_groups = [self.filter_group_0]
         self.filters_groups_layout.addWidget(self.filter_group_0)
         self.filters_groups_counter += 1
@@ -181,23 +186,44 @@ class OLXScraperApp(QWidget):
 
         self.setLayout(self.main_layout)
 
-    def add_new_filter_group(self):
+    def add_new_filter_group(self):        
         new_filter_group_name = "filter_group_"+str(self.filters_groups_counter)
         setattr(self, new_filter_group_name, FilterGroup(self.filters_groups_counter))
         new_filter_group = getattr(self, new_filter_group_name)
 
         self.filters_groups_layout.removeWidget(self.add_new_filter_group_button)
         self.add_new_filter_group_button.setParent(None)
+
         self.filters_groups_layout.addWidget(new_filter_group)
         self.all_filter_groups.append(new_filter_group)
+        new_filter_group.remove_filter_button.clicked.connect(lambda: self.remove_filter_group(new_filter_group.group_id))
 
-        for i in range(self.filters_groups_counter+1):
+        self.filters_groups_counter += 1
+
+        for i in range(self.filters_groups_counter):
             self.filters_groups_layout.setStretch(i, 1)
 
-        if self.filters_groups_counter != 4:
+        if self.filters_groups_counter != 5:
             self.filters_groups_layout.addWidget(self.add_new_filter_group_button)
-            self.filters_groups_layout.setStretch(self.filters_groups_counter+1, 1)
-            self.filters_groups_counter += 1
+            self.filters_groups_layout.setStretch(self.filters_groups_counter, 1)
+
+    def remove_filter_group(self, group_id):
+        # Visually remove the filter group
+        self.filters_groups_layout.removeWidget(self.all_filter_groups[group_id])
+        self.all_filter_groups[group_id].setParent(None)
+        self.filters_groups_counter -= 1
+
+        # Rearrange groups in list
+        self.all_filter_groups.pop(group_id)
+
+        # Reassign group IDs
+        for group in self.all_filter_groups:
+            if group_id < group.group_id:
+                group.group_id -= 1
+        
+        if self.filters_groups_counter == 4:
+            self.filters_groups_layout.addWidget(self.add_new_filter_group_button)
+            self.filters_groups_layout.setStretch(self.filters_groups_counter, 1)
 
     def run_search(self):
         self.results_table.clear()
@@ -257,8 +283,9 @@ class OLXScraperApp(QWidget):
                     max_results=50
                 )
                 if len(results) == 0:
-                    break
-
+                    tree_item = QTreeWidgetItem(self.results_table)
+                    tree_item.setText(0, brand + " " + filters["county"] + " - no results")
+                    continue
 
             parent_item = QTreeWidgetItem(self.results_table)
 

@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QComboBox, 
-                             QFrame, QSizePolicy, QScrollArea)
+                             QFrame, QSizePolicy, QScrollArea, QPushButton)
 
 
 class LabelTextPair(QHBoxLayout):
@@ -22,6 +22,10 @@ class FilterGroup(QWidget):
         ])
         self.brand_combo.setCurrentIndex(3)
         self.brand_layout = LabelTextPair("Brand:", self.brand_combo)
+
+        self.remove_filter_button = QPushButton("Delete filter")
+
+        self.brand_layout.addWidget(self.remove_filter_button)
 
         self.county_combo = QComboBox()
         self.county_combo.addItems([
