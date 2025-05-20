@@ -5,9 +5,10 @@ import webbrowser
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QComboBox, QMessageBox, QTreeWidget,
-    QTreeWidgetItem, QScrollArea, QFrame, QSizePolicy
+    QTreeWidgetItem, QScrollArea, QFrame, QSizePolicy,
+    QProgressBar
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QObject
 from bs4 import BeautifulSoup
 from urllib.parse import urlencode
 from custom_widgets import *
@@ -60,7 +61,6 @@ def build_olx_url(
 
     return base_url + "?" + urlencode(params, doseq=True)
 
-
 def scrape_olx_motorcycles(
     brand=None,
     county=None,
@@ -107,16 +107,24 @@ def scrape_olx_motorcycles(
         if not listings:
             break
 
+        result_counter = 0
+
         for listing in listings:
+            result_counter += 1
             if len(results) >= max_results:
                 break
             title_elem = listing.select_one("h4")
             price_elem = listing.select_one("p[data-testid='ad-price']")
             link_elem = listing.select_one("a")["href"]
 
-            title = title_elem.text.strip() if title_elem else "No title"
+            title = str(result_counter) + ". " + title_elem.text.strip() if title_elem else "No title"
             price = price_elem.text.strip() if price_elem else "No price"
-            link = "https://olx.ro"+link_elem if link_elem else "No link"
+
+            if "autovit" not in link_elem:
+                link = "https://olx.ro"+link_elem if link_elem else "No link"
+            else:
+                link = link_elem if link_elem else "No link"
+
 
             item = (title, price, link)
             if item not in results:
@@ -131,6 +139,9 @@ def scrape_olx_motorcycles(
         time.sleep(1)
 
     return results
+
+class Worker(QObject):
+    pass
 
 class OLXScraperApp(QWidget):
     def __init__(self):
@@ -168,9 +179,21 @@ class OLXScraperApp(QWidget):
         self.search_button = QPushButton("Search")
         self.search_button.setObjectName("Search")
         self.search_button.clicked.connect(self.run_search)
+
+        self.search_progress = 0
+        self.search_progress_bar = QProgressBar()
+        self.search_progress_bar.setTextVisible(True)
+        self.search_progress_bar.setRange(0, 100)
+        self.search_progress_bar.setStyleSheet('''
+                                               QProgressBar {
+                                                    text-align: center;
+                                                    text-color: black
+                                               }''')
+
         self.search_button_layout = QHBoxLayout()
-        self.search_button_layout.addWidget(self.search_button)
-        self.search_button_layout.addStretch(1)
+        self.search_button_layout.addWidget(self.search_button,        1)
+        self.search_button_layout.addWidget(self.search_progress_bar, 10)
+
         self.main_layout.addLayout(self.search_button_layout)
 
         # Table for results
@@ -185,6 +208,8 @@ class OLXScraperApp(QWidget):
         self.main_layout.addWidget(self.results_table)
 
         self.setLayout(self.main_layout)
+
+        self.results_table.itemDoubleClicked.connect(self.open_in_browser_double_click)
 
     def add_new_filter_group(self):        
         new_filter_group_name = "filter_group_"+str(self.filters_groups_counter)
@@ -227,6 +252,7 @@ class OLXScraperApp(QWidget):
 
     def run_search(self):
         self.results_table.clear()
+        self.search_progress_bar.setValue(0)
 
         for filter_group in self.all_filter_groups:
             brand = filter_group.brand_combo.currentText().strip()
@@ -301,13 +327,20 @@ class OLXScraperApp(QWidget):
                 current_item.setText(2, link)
                 self.results_table.setItemWidget(current_item, 3, self.create_browser_button(link))
 
+        self.search_progress_bar.setValue(100)
+
     def create_browser_button(self, link):
         button = QPushButton("Open in Browser")
         button.clicked.connect(lambda: self.open_in_browser(link))
+
         return button
 
     def open_in_browser(self, link):
         webbrowser.open(link)
+
+    def open_in_browser_double_click(self):
+        link = self.results_table.currentItem().text(2)
+        self.open_in_browser(link)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
